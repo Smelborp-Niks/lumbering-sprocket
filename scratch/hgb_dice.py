@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+#created by WiseKensai https://github.com/WiseKensai/lumbering-sprocket/blob/main/scratch/hgb_dice.py
+#modified by Barcode
 
 def edit_me():
   """ You can set up an arbitrary number of HGB dice experiments here.
@@ -11,28 +13,37 @@ def edit_me():
         * field_armor: True/False
         * ap         : #
         * dot        : # (use this for fire, set to 1 for haywire or corrosion)
-
-      Below is an experiment of a Jaguar shooting at a Hunter in cover.
-      Either you have a LLC or a HRF.
-  """
-  traits1 = {'precise': True,
-             'advanced': True}
-  exp1 = HGB_Dice_Experiment(2,3, # Attacker Dice, Attacker Skill
-                             3,4, # Defender Dice, Defender Skill
-                             6,6, # Weapon Damage, Defender AR
+        *
+  Examples:
+  traitsX = {'infantry': True}
+  expX = HGB_Dice_Experiment(5,4, # Attacker Dice, Attacker Skill
+                             4,4, # Defender Dice, Defender Skill
+                             5,5, # Weapon Damage, Defender AR
                              4,2, # Defender H,S
-                             traits1,
-                             name="LLC Opt")
-
-  traits2 = {'precise': True}
-  exp2 = HGB_Dice_Experiment(2,3, # Attacker Dice, Attacker Skill
-                             3,4, # Defender Dice, Defender Skill
-                             8,6, # Weapon Damage, Defender AR
+                             traitsX)
+                             
+  traitsY = {'infantry': True}
+  expY = HGB_Dice_Experiment(3,4, # Attacker Dice, Attacker Skill
+                             4,4, # Defender Dice, Defender Skill
+                             8,5, # Weapon Damage, Defender AR
                              4,2, # Defender H,S
-                             traits2,
-                             name="HRF Opt")
+                             traitsY)"""                             
 
-  compare_experiments([exp1,exp2])
+
+  traits = {}
+  exp1 = HGB_Dice_Experiment(4,4, # Attacker Dice, Attacker Skill
+                             4,4, # Defender Dice, Defender Skill
+                             6,5, # Weapon Damage, Defender AR
+                             4,2, # Defender H,S
+                             traits)                             
+
+  exp2 = HGB_Dice_Experiment(5,4, # Attacker Dice, Attacker Skill
+                             4,4, # Defender Dice, Defender Skill
+                             6,5, # Weapon Damage, Defender AR
+                             4,2, # Defender H,S
+                             traits)                             
+
+  compare_experiments([exp1,exp2,])
 
 # Here be dragons. Edit what follows at your own risk!
 """""""""""""""""""""""""""""""""""""""""""""""""""
@@ -66,8 +77,7 @@ class HGB_Dice_Experiment:
                hull,structure,
                traits,
                nsamples=10000,
-               target_damage=2,
-               name="Experiment"):
+               target_damage=2):
     self.diceA = diceA
     self.skillA = skillA
     self.diceB = diceB
@@ -80,7 +90,6 @@ class HGB_Dice_Experiment:
     self.nsamples = nsamples
     self.target_damage = target_damage
 
-    self.name = name
     self.samples = self.monte_carlo_mos()
     self.damage = self.process_damage()
     self.damage_hist = collections.Counter(self.damage)
@@ -142,7 +151,7 @@ class HGB_Dice_Experiment:
         chance = histogram[i]*100.0/len(self.samples)
         if i == 0 and not agile:
           hit = hit + chance
-        elif i > 0:
+        elif i < 0:
           hit = hit + chance
 
       return hit
@@ -150,32 +159,30 @@ class HGB_Dice_Experiment:
   def calculate_takeaways(self):
     histogram = self.damage_hist
     agile = False if "agile" not in self.traits else self.traits["agile"]
-    target = 0
-    cripple = 0
-    kill = 0
+    oneplus = 0
+    twoplus = 0
+    threeplus = 0
+    fourplus = 0
+    hurtAvg = 0
+    meanDmg = (float(0))
+    
     for i in range(min(self.damage),max(self.damage)+1):
       chance = histogram[i]*100.0/len(self.damage)
-      if i >= self.target_damage:
-        target = target + chance
-      if i >= self.hull:
-        cripple = cripple + chance
-      if i >= self.hull+self.structure:
-        kill = kill + chance
-    return target,cripple,kill
+      if i >= 1:
+        oneplus = oneplus + chance
+        hurtAvg = hurtAvg + (chance*i)
+      if i >= 2:
+        twoplus = twoplus + chance
+      if i >= 3:
+        threeplus = threeplus + chance
+      if i >= 4:
+        fourplus = fourplus + chance
 
-  def __str__(self):
-    ret = ""
-    histogram = collections.Counter(self.samples)
-    ret = ret + "Mean MoS: {0:3.2f}\n".format(sum(self.samples)*1.0/len(self.samples))
-    ret = ret + "MoS: % chance\n"
-    for i in range(min(self.samples),max(self.samples)+1):
-      ret = ret + "  {0:2d}: {1:6.3f}\n".format(i,histogram[i]*100.0/len(self.samples))
+    meanDmg = hurtAvg / 100    
+    hurtAvg = hurtAvg / oneplus
+    
+    return oneplus,twoplus,threeplus,fourplus,hurtAvg,meanDmg
 
-    ret = ret + "Mean Damage: {0:3.2f}\n".format(sum(self.damage)*1.0/len(self.damage))
-    ret = ret + "Damage: % chance\n"
-    for i in range(min(self.damage),max(self.damage)+1):
-      ret = ret + "  {0:2d}: {1:6.3f}\n".format(i,histogram[i]*100.0/len(self.damage))
-    return ret
 
 
 def compare_experiments(experiments):
@@ -184,11 +191,6 @@ def compare_experiments(experiments):
 
     width = 15
 
-    form = " {{0:>{0}}}".format(width)
-    print(form.format(" "),end="")
-    for exp in experiments:
-      print(form.format(exp.name),end="")
-    print("")
 
     metadata_titles = ["Dice","Skill","Dam v AR","H/S"]
     metadata = []
@@ -210,7 +212,7 @@ def compare_experiments(experiments):
     for exp in experiments:
       exp_traits = []
       for title in trait_titles:
-        exp_traits.append(" " if title not in exp.traits else exp.traits[title])
+        exp_traits.append("" if title not in exp.traits else exp.traits[title])
       traits.append(exp_traits)
     for i in range(len(trait_titles)):
       form = " {{0:>{0}}}".format(width)
@@ -218,34 +220,34 @@ def compare_experiments(experiments):
       for j in range(len(traits)):
         print(form.format(traits[j][i]),end="")
       print("")
-
-
-    for i in range(minimum,maximum+1):
+    
+    """for i in range(minimum,maximum+1):
       form = " {{0:{0}d}}".format(width)
       print(form.format(i),end="")
       for exp in experiments:
         val = 0 if i not in exp.damage_hist else exp.damage_hist[i]*100.0/len(exp.damage)
-        form = " {{0:{0}.3f}}".format(width)
+        form = " {{0:{0}.1f}}".format(width)
         print(form.format(val),end="")
-      print("")
-
+      print("")"""
+    
     takeaways = []
     for exp in experiments:
       hit = exp.calculate_hit()
-      target,cripple,kill = exp.calculate_takeaways()
-      takeaways.append((hit,target,cripple,kill))
-
-    takeaway_titles=["Hit",">={0}".format(experiments[0].target_damage),"Cripple","Kill"]
+      oneplus,twoplus,threeplus,fourplus,hurtAvg,meanDmg = exp.calculate_takeaways()
+      takeaways.append((oneplus,twoplus,threeplus,fourplus,hurtAvg,meanDmg))
+    takeaway_titles=[">=1",">=2",">=3",">=4","Avg If Damage","Overall Avg"]
 
     for i in range(len(takeaway_titles)):
       form = " {{0:>{0}}}".format(width)
       print(form.format(takeaway_titles[i]),end="")
-      form = " {{0:{0}.3f}}".format(width)
+      form = " {{0:{0}.1f}}".format(width)
       for j in range(len(takeaways)):
         print(form.format(takeaways[j][i]),end="")
       print("")
-
+    print("")
+    print("Overall Dmg tells you what you should expect before spending resources on an attack.")
+    print("Avg If Damage tells you how valuable re-rolling a miss could be.")
 
 if __name__ == "__main__":
-    random.seed(42)
+    random.seed(420)
     edit_me()
